@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import numpy as np
 import pandas as pd
 from os import path, replace
@@ -13,6 +14,16 @@ import os
 import json
 import sys
 import time
+import configparser
+
+class CustomError(Exception): 
+    def __init__(self, value): 
+        self.value = value
+    def __str__(self): 
+        return "Error: %s" % self.value
+
+def get_project_dir():
+    return os.path.dirname(__file__)
 
 def get_abs_path(path):
     return os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
@@ -26,12 +37,62 @@ def get_yt_vid_id(url):
         return m.group(1)
     return ""
 
+def setup_wordcloud(config_path, font_path, mask):
+
+    #Read config.ini for word cloud settings 
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    if 'WORDCLOUD_SETTINGS' not in config:
+        raise CustomError("Missing WORDCLOUD_SETTINGS block in config.ini")
+
+    wc_setting = config['WORDCLOUD_SETTINGS']
+    background_color = wc_setting.get('background_color', 'black')
+    width = wc_setting.get('width', 4000)
+    height = wc_setting.get('height', 4000)
+    scale = wc_setting.get('scale', 5)
+    max_words = wc_setting.get('max_words', 4000)
+    min_font_sz = wc_setting.get('min_font_size', 10)
+    max_font_sz = wc_setting.get('max_font_size', 512)
+    collocations = wc_setting.get('collocations', False)
+    relative_scaling=wc_setting.get('relative_scaling', 0.5)
+
+    wc = WordCloud(
+    background_color=background_color,
+    stopwords=STOPWORDS, 
+    font_path=font_path,
+    collocations=bool(collocations),
+    max_font_size=int(max_font_sz), 
+    min_font_size=int(min_font_sz), 
+    max_words=int(max_words), 
+    relative_scaling=float(relative_scaling), 
+    mask=mask, 
+    random_state=3, 
+    scale=int(scale), 
+    width=int(width), 
+    height=int(height)
+    );
+
+    return wc
+
+CONFIG_PATH = get_project_dir() + "/config.ini"
+font_path = get_project_dir() + "/NotoSansCJKjp-Light.otf"
+
+try:
+    mask = np.array(Image.open("gura.png"))
+except FileNotFoundError:
+    print("Could not find word cloud mask image")
+    exit(-1)
+
+wc = setup_wordcloud(CONFIG_PATH, font_path, mask)
+image_colors = ImageColorGenerator(mask)
+
 url = 'https://www.youtube.com/watch?v=kYChcl_6rvs'
 try:
     chat = ChatDownloader().get_chat(url)       
 except Exception as e:
     print("Could not get chat for URL, exiting...")
     exit(-1)
+
 
 word_cloud_string = ""
 vid_id = get_yt_vid_id(url)
@@ -59,23 +120,16 @@ else:
     for line in chat_log:
         word_cloud_string += (line + '\n')
 
-mask = np.array(Image.open("gura.png"))
-image_colors = ImageColorGenerator(mask)
-font_path="/home/ryota/Documents/noto_sans/NotoSansCJKjp-Light.otf"
 
-wc = WordCloud(background_color='black',stopwords=STOPWORDS, collocations=False,
-max_font_size=512, min_font_size=10, max_words=4000, 
-relative_scaling=0.5, mask=mask, random_state=3, scale=5, 
-width=4000, height=4000, font_path=font_path);
-
+print ("Generating Word Cloud...")
 wc.generate(word_cloud_string)
 plt.axis('off')
-plt.figure( figsize=(40,40) )
-
+plt.figure(figsize=(40,40))
 plt.tight_layout(pad=0)
 plt.imshow(wc.recolor(color_func=image_colors), interpolation="bilinear")
 plt.axis('off')
-plt.savefig("gura_wc.png", format="png", dpi=300, facecolor='k', bbox_inches='tight')
+plt.savefig("word_cloud.png", format="png", dpi=300, facecolor='k', bbox_inches='tight')
+print ("Created word_cloud.png within current directory. Exiting...")
 
 
 
