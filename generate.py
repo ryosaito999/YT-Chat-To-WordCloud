@@ -15,6 +15,7 @@ import json
 import sys
 import time
 import configparser
+from optparse import OptionParser
 
 class CustomError(Exception): 
     def __init__(self, value): 
@@ -73,6 +74,26 @@ def setup_wordcloud(config_path, font_path, mask):
     );
 
     return wc
+
+image_path=""
+chat_log_path=""
+output_path=""
+
+usage = "usage: %prog <URL> [options]"
+parser = OptionParser(usage)
+parser.add_option("-i", "--image",
+                  help="word cloud mask image file", 
+                  metavar="FILE", action="store", type="string", dest="image_path")
+parser.add_option("-c", "--chatlog", 
+                  help="use youtube chat log archive file intstead", 
+                  metavar="FILE", action="store", type="string", dest="chat_log_path")
+parser.add_option("-o", "--output",
+                  help="name custom output path for wordcloud",
+                  metavar="FILE", action="store", type="string", dest="output_path")
+
+(options, args) = parser.parse_args()
+if len(args) != 1:
+    parser.error("Missing URL")
 
 CONFIG_PATH = get_project_dir() + "/config.ini"
 font_path = get_project_dir() + "/NotoSansCJKjp-Light.otf"
